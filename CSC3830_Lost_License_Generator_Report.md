@@ -1,3 +1,4 @@
+
 # CSC-3830 Reverse Engineering & Malware Analysis
 
 ## Disassembly Lab: Reverse Engineering Challenge - The Lost License Generator
@@ -84,29 +85,85 @@ This identified the final license-validation logic.
 
 ---
 
-# 2. Trace the Calculation
 
-After finding the call to `calculateKey`, I opened the `calculateKey` function in IDA and analyzed its control-flow graph.
+## Main Function Path Summary
+
+The `main` function is mainly responsible for input and for deciding whether the key is accepted. Its normal path is:
+
+```text
+Start
+  |
+  v
+Display Student License Validator
+  |
+  v
+Read username with %63s
+  |
+  +---- read fails ----> "Could not read username." ----> Exit
+  |
+  v
+Read decimal license key with %u
+  |
+  +---- read fails ----> "Invalid input. Enter a numeric key." ----> Exit
+  |
+  v
+call calculateKey(username)
+  |
+  v
+Calculated key returned in EAX
+  |
+  v
+Compare calculated key with entered key
+  |
+  +---- equal ---------> "License accepted!"
+  |
+  +---- not equal -----> "Invalid license."
+  |
+  v
+Exit
+```
+
+The important point is that `main` does **not** create the key itself. The actual license-generation algorithm is contained in `calculateKey`, so that function was the main focus of the reverse engineering.
+
+
+# 2. Trace the Calculation - Detailed Analysis of `calculateKey`
+
+After locating the call to `calculateKey` in `main`, I opened that function directly in IDA. This is the most important function in the challenge because it contains the complete algorithm used to derive the expected license key from the username.
 
 ![Figure 4 - calculateKey function](13ff04d7-2e99-4abe-a502-2fbf589ae74e.png)
 
-**Figure 4.** Complete `calculateKey` loop showing initialization, character processing, looping, and the final XOR.
+**Figure 4.** Complete `calculateKey` control-flow graph. The function initializes a value, loops through the username one byte at a time, performs arithmetic on each character, and applies a final XOR before returning.
 
-The function starts with:
+## Step 1 - Receive the Username Pointer
+
+The function begins with:
 
 ```asm
+push    rbp
+mov     rbp, rsp
+sub     rsp, 10h
 mov     [rbp+arg_0], rcx
-mov     [rbp+var_4], 3E8h
-jmp     short loc_14000147E
 ```
 
-The username pointer is passed to the function in `RCX`. The instruction:
+On 64-bit Windows, `RCX` is used for the first function argument. In this case, `main` previously placed the address of the username into `RCX` before calling `calculateKey`.
+
+Therefore:
+
+```text
+arg_0 = pointer to the first character of username
+```
+
+The function stores this pointer on the stack so it can repeatedly access and advance through the string.
+
+## Step 2 - Initialize the Running Key
+
+The next important instruction is:
 
 ```asm
-mov [rbp+var_4], 3E8h
+mov     [rbp+var_4], 3E8h
 ```
 
-initializes the running key to hexadecimal `0x3E8`, which is **1000 decimal**.
+`0x3E8` is `1000` in decimal.
 
 Therefore:
 
@@ -114,53 +171,117 @@ Therefore:
 key = 1000
 ```
 
-## Username Loop
+`var_4` is the running key value used throughout the loop.
 
-The function checks the current username character with:
+## Step 3 - Check the Current Character
+
+Execution jumps to the loop condition:
 
 ```asm
+loc_14000147E:
 mov     rax, [rbp+arg_0]
 movzx   eax, byte ptr [rax]
 test    al, al
 jnz     short loc_140001465
 ```
 
-`movzx` loads the current character. `test al, al` checks whether that character is zero. A C string ends with a null byte (`\0`), so this creates a loop that continues until the end of the username.
+The instructions work as follows:
 
-In pseudocode:
-
-```text
-while current_character != '\0'
+```asm
+mov rax, [rbp+arg_0]
 ```
 
-For each character, the function executes:
+loads the current username pointer.
+
+```asm
+movzx eax, byte ptr [rax]
+```
+
+reads one byte from that address. This is the current character.
+
+For example, if the username is:
+
+```text
+carter
+```
+
+the first iteration reads:
+
+```text
+'c' = ASCII 99
+```
+
+The instruction:
+
+```asm
+test al, al
+```
+
+checks whether the character is zero. C strings end with a null byte (`0x00`), so this is effectively checking:
+
+```text
+Is the current character '\0'?
+```
+
+Then:
+
+```asm
+jnz short loc_140001465
+```
+
+jumps to the calculation block if the character is **not zero**.
+
+This creates the equivalent of:
+
+```c
+while (*username != '\0')
+```
+
+## Step 4 - Load the Character's Numeric Value
+
+Inside the loop:
 
 ```asm
 mov     rax, [rbp+arg_0]
 movzx   eax, byte ptr [rax]
 movzx   edx, al
 mov     eax, edx
-shl     eax, 3
-sub     eax, edx
-add     [rbp+var_4], eax
-add     [rbp+arg_0], 1
 ```
 
-The current character's ASCII value is placed into `EDX` and copied to `EAX`.
+The character is loaded again and zero-extended so its unsigned byte value can be used in arithmetic.
 
-The instruction:
-
-```asm
-shl eax, 3
-```
-
-shifts the value left three bits, which is equivalent to multiplying it by 8:
+Conceptually:
 
 ```text
-EAX = ASCII(character) * 8
+characterValue = ASCII(current character)
+EAX = characterValue
+EDX = characterValue
 ```
 
-The next instruction:
+For lowercase `c`:
+
+```text
+characterValue = 99
+EAX = 99
+EDX = 99
+```
+
+## Step 5 - Multiply the Character by 7
+
+The program does not contain a normal `imul ..., 7` instruction. Instead it performs:
+
+```asm
+shl     eax, 3
+sub     eax, edx
+```
+
+`shl eax, 3` shifts the value left three bits:
+
+```text
+EAX = characterValue * 8
+```
+
+Then:
 
 ```asm
 sub eax, edx
@@ -169,72 +290,306 @@ sub eax, edx
 subtracts the original character value:
 
 ```text
-(ASCII(character) * 8) - ASCII(character)
+EAX = (characterValue * 8) - characterValue
 ```
 
-This simplifies to:
+which simplifies to:
 
 ```text
-ASCII(character) * 7
+EAX = characterValue * 7
 ```
 
-The program then executes:
+For `c`:
+
+```text
+ASCII('c') = 99
+
+99 * 8 = 792
+792 - 99 = 693
+
+Therefore:
+99 * 7 = 693
+```
+
+This is one of the most important pieces of the recovered algorithm.
+
+## Step 6 - Add the Character Contribution to the Key
+
+The next instruction is:
 
 ```asm
-add [rbp+var_4], eax
+add     [rbp+var_4], eax
 ```
 
-which adds that value to the running key.
-
-Finally:
-
-```asm
-add [rbp+arg_0], 1
-```
-
-moves the username pointer forward one byte so that the next character can be processed.
-
-Therefore, for every username character:
+Since `var_4` is the running key:
 
 ```text
 key = key + (ASCII(character) * 7)
 ```
 
-## Final XOR
+For the first character of `carter`:
 
-When the function reaches the null terminator, it leaves the loop and executes:
+```text
+Starting key = 1000
+'c' = 99
+99 * 7 = 693
+
+key = 1000 + 693
+key = 1693
+```
+
+## Step 7 - Advance to the Next Character
+
+The loop then executes:
+
+```asm
+add     [rbp+arg_0], 1
+```
+
+Because each username character is one byte, adding `1` to the pointer moves it to the next character.
+
+For:
+
+```text
+carter
+^
+```
+
+after the increment:
+
+```text
+carter
+ ^
+```
+
+The blue control-flow arrow returns to `loc_14000147E`, where the next character is checked.
+
+The process repeats for every character:
+
+```text
+Read character
+      |
+      v
+Is character 0?
+  |         |
+ NO        YES
+  |         |
+  v         |
+ASCII value |
+  |         |
+  v         |
+value * 8   |
+  |         |
+  v         |
+subtract original value
+  |
+  v
+value * 7
+  |
+  v
+add to key
+  |
+  v
+pointer + 1
+  |
+  +----------> loop back
+```
+
+## Step 8 - Exit the Loop
+
+Eventually the pointer reaches the null terminator at the end of the username.
+
+At that point:
+
+```asm
+test al, al
+```
+
+finds a zero value, so:
+
+```asm
+jnz short loc_140001465
+```
+
+is **not taken**.
+
+Execution falls through to the return block.
+
+## Step 9 - Apply the Final XOR
+
+The final calculation is:
 
 ```asm
 mov     eax, [rbp+var_4]
 xor     eax, 1234h
+```
+
+First, the accumulated key is copied into `EAX`.
+
+Then it is XORed with:
+
+```text
+0x1234
+```
+
+Therefore:
+
+```text
+finalKey = accumulatedKey XOR 0x1234
+```
+
+The function then executes:
+
+```asm
 add     rsp, 10h
 pop     rbp
 retn
 ```
 
-The accumulated key is moved into `EAX` and XORed with hexadecimal `0x1234`.
+and returns the final value in `EAX`.
 
-Therefore, the final operation is:
+## Complete `calculateKey` Process
 
-```text
-key = key XOR 0x1234
-```
-
-The result in `EAX` is returned to `main`.
-
-The complete recovered calculation is:
+The entire function can therefore be represented as:
 
 ```text
-Start key at 1000.
-
-For every character in the username:
-    Add ASCII(character) * 7 to the key.
-
-After every character has been processed:
-    XOR the key with 0x1234.
-
-Return the result.
+calculateKey(username)
+        |
+        v
+key = 1000
+        |
+        v
+Read current character <-------------------+
+        |                                   |
+        v                                   |
+Is character '\0'?                          |
+   |              |                         |
+  YES             NO                        |
+   |              |                         |
+   |              v                         |
+   |       Get ASCII value                  |
+   |              |                         |
+   |              v                         |
+   |        Multiply by 8                   |
+   |              |                         |
+   |              v                         |
+   |       Subtract original                |
+   |              |                         |
+   |              v                         |
+   |        Character * 7                   |
+   |              |                         |
+   |              v                         |
+   |          Add to key                    |
+   |              |                         |
+   |              v                         |
+   |       Move pointer + 1 ----------------+
+   |
+   v
+key XOR 0x1234
+   |
+   v
+Return key in EAX
 ```
+
+## Example - Manually Calculating the Key for `carter`
+
+The successful test used:
+
+```text
+username = carter
+```
+
+The character values are:
+
+| Character | ASCII | ASCII × 7 |
+|---|---:|---:|
+| `c` | 99 | 693 |
+| `a` | 97 | 679 |
+| `r` | 114 | 798 |
+| `t` | 116 | 812 |
+| `e` | 101 | 707 |
+| `r` | 114 | 798 |
+
+Starting with 1000:
+
+```text
+1000 + 693 = 1693
+1693 + 679 = 2372
+2372 + 798 = 3170
+3170 + 812 = 3982
+3982 + 707 = 4689
+4689 + 798 = 5487
+```
+
+The accumulated value is therefore:
+
+```text
+5487
+```
+
+The final step is:
+
+```text
+5487 XOR 0x1234 = 1883
+```
+
+So:
+
+```text
+calculateKey("carter") = 1883
+```
+
+This matches the successful validator test.
+
+## Example - `ducky`
+
+| Character | ASCII | ASCII × 7 |
+|---|---:|---:|
+| `d` | 100 | 700 |
+| `u` | 117 | 819 |
+| `c` | 99 | 693 |
+| `k` | 107 | 749 |
+| `y` | 121 | 847 |
+
+```text
+key = 1000
+key = 1000 + 700 + 819 + 693 + 749 + 847
+key = 4808
+
+4808 XOR 0x1234 = 252
+```
+
+Therefore:
+
+```text
+calculateKey("ducky") = 252
+```
+
+## Example - `hello`
+
+| Character | ASCII | ASCII × 7 |
+|---|---:|---:|
+| `h` | 104 | 728 |
+| `e` | 101 | 707 |
+| `l` | 108 | 756 |
+| `l` | 108 | 756 |
+| `o` | 111 | 777 |
+
+```text
+key = 1000
+key = 1000 + 728 + 707 + 756 + 756 + 777
+key = 4724
+
+4724 XOR 0x1234 = 64
+```
+
+Therefore:
+
+```text
+calculateKey("hello") = 64
+```
+
+These manually calculated values match the keys accepted by the original executable.
 
 ---
 
@@ -303,6 +658,30 @@ License Key = (1000 + 7 * sum(ASCII values of username characters)) XOR 0x1234
 
 I recreated the recovered algorithm in Python. The program accepts any supported username and generates the decimal license key expected by the original executable.
 
+## Translating `calculateKey` Directly into Python
+
+The Python code follows the assembly almost line-for-line at the algorithm level:
+
+```text
+Assembly: mov [rbp+var_4], 3E8h
+Python:   key = 1000
+
+Assembly: read one byte from the username
+Python:   for character in username
+
+Assembly: shl eax, 3 / sub eax, edx
+Python:   ord(character) * 7
+
+Assembly: add [rbp+var_4], eax
+Python:   key += ord(character) * 7
+
+Assembly: xor eax, 1234h
+Python:   key ^= 0x1234
+```
+
+This means the keygen is reproducing the validator's calculation rather than bypassing its comparison.
+
+
 ## Python Source Code
 
 ```python
@@ -341,108 +720,51 @@ The keygen does not modify `license_check_student.exe`.
 
 # 5. Demonstrate Success
 
-The replacement key generator must be tested against the original, unmodified validator with at least three usernames.
+I tested the reconstructed Python key generator with three different usernames and then entered each generated decimal key into the original, unmodified `license_check_student.exe`. All three username/key combinations were accepted by the validator.
 
-## Example Calculation - `Bob`
+The Python keygen was also run directly in Spyder. The screenshot below shows the source code and generated output for two of the test usernames.
 
-For the username:
+![Figure 7 - Python keygen source and generated keys](keygen_source_and_output.png)
 
-```text
-Bob
-```
+**Figure 7.** Python replacement key generator running in Spyder. It generated `252` for `ducky` and `1883` for `carter`.
 
-the ASCII values are:
+## Verification Test 1 - `ducky`
 
 ```text
-B = 66
-o = 111
-b = 98
-```
-
-Starting value:
-
-```text
-key = 1000
-```
-
-Process `B`:
-
-```text
-66 * 7 = 462
-1000 + 462 = 1462
-```
-
-Process `o`:
-
-```text
-111 * 7 = 777
-1462 + 777 = 2239
-```
-
-Process `b`:
-
-```text
-98 * 7 = 686
-2239 + 686 = 2925
-```
-
-Final XOR:
-
-```text
-2925 XOR 0x1234 = 6489
-```
-
-Therefore:
-
-```text
-Username: Bob
-Generated Key: 6489
-```
-
-Entering `Bob` and `6489` into the original validator should result in:
-
-```text
-License accepted!
-```
-
-## Required Verification Tests
-
-Use the keygen to generate keys for three usernames and enter each username/key pair into the original `license_check_student.exe`.
-
-### Test 1
-
-```text
-Username: ____________________
-Generated Key: _______________
+Username: ducky
+Generated Key: 252
 Validator Result: License accepted!
 ```
 
-**Verification Screenshot:**  
-_Insert screenshot showing Test 1 being accepted here._
+![Figure 8 - ducky accepted with key 252](verification_ducky.png)
 
-### Test 2
+**Figure 8.** The original validator accepts username `ducky` with the generated decimal key `252`.
+
+## Verification Test 2 - `carter`
 
 ```text
-Username: ____________________
-Generated Key: _______________
+Username: carter
+Generated Key: 1883
 Validator Result: License accepted!
 ```
 
-**Verification Screenshot:**  
-_Insert screenshot showing Test 2 being accepted here._
+![Figure 9 - carter accepted with key 1883](verification_carter.png)
 
-### Test 3
+**Figure 9.** The original validator accepts username `carter` with the generated decimal key `1883`.
+
+## Verification Test 3 - `hello`
 
 ```text
-Username: ____________________
-Generated Key: _______________
+Username: hello
+Generated Key: 64
 Validator Result: License accepted!
 ```
 
-**Verification Screenshot:**  
-_Insert screenshot showing Test 3 being accepted here._
+![Figure 10 - hello accepted with key 64](verification_hello.png)
 
-> **Note:** These three screenshots should show the actual output of the unmodified validator. They should not be replaced with predicted results.
+**Figure 10.** The original validator accepts username `hello` with the generated decimal key `64`.
+
+These three successful tests demonstrate that the recovered algorithm is correct. The key generator is not limited to one hard-coded username or key; it reproduces the same calculation performed by the original validator.
 
 ---
 
@@ -507,6 +829,5 @@ A Python replacement key generator was created from this algorithm. Because it r
 | Explanation of relevant assembly instructions | Yes |
 | Complete Python keygen source code | Yes |
 | Original validator left unchanged | Yes |
-| Three successful verification screenshots | **Still needs actual test screenshots** |
+| Three successful verification screenshots | Yes |
 
-**Before final submission:** run the Python keygen for three different usernames, test all three generated keys in the original `license_check_student.exe`, and replace the three verification placeholders in Section 5 with screenshots showing `License accepted!`.
