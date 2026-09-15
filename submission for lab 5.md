@@ -445,15 +445,3 @@ A Python replacement key generator was created from this algorithm. Because it r
 
 ---
 
-# Submission Requirements Checklist
-
-| Deliverable | Included |
-|---|---|
-| Technical report explaining findings | Yes |
-| Annotated/relevant IDA screenshots showing key logic | Yes |
-| Precise algorithm pseudocode | Yes |
-| Explanation of relevant assembly instructions | Yes |
-| Complete Python keygen source code | Yes |
-| Original validator left unchanged | Yes |
-| Three successful verification screenshots | Yes |
-
