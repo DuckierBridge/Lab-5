@@ -8,6 +8,16 @@
 **Course:** CSC-3830 Reverse Engineering & Malware Analysis
 
 ---
+<img width="1058" height="563" alt="Screenshot 2026-09-15 160204" src="https://github.com/user-attachments/assets/1761c438-8ba2-4b00-9965-bfee91ab4efd" />
+<img width="1818" height="1062" alt="Screenshot 2026-09-15 160139" src="https://github.com/user-attachments/assets/01255d5d-e74f-4c73-8977-761a529b67b2" />
+<img width="1053" height="557" alt="Screenshot 2026-09-15 160129" src="https://github.com/user-attachments/assets/84cb4fdb-c9a1-4f28-b914-bd84f7c70de7" />
+<img width="1056" height="553" alt="Screenshot 2026-09-15 160051" src="https://github.com/user-attachments/assets/f787db7d-56e5-4cc5-8f86-7909cdc84549" />
+<img width="848" height="553" alt="Screenshot 2026-09-15 154959" src="https://github.com/user-attachments/assets/eefdd467-c054-4137-b063-1d6bcad90ce7" />
+<img width="978" height="558" alt="Screenshot 2026-09-15 154421" src="https://github.com/user-attachments/assets/2f1aeade-3646-490d-8e27-80f2d1a0232a" />
+<img width="1001" height="550" alt="Screenshot 2026-09-15 154411" src="https://github.com/user-attachments/assets/11d1ce32-f26e-4876-8ec3-431abd312423" />
+<img width="1003" height="548" alt="Screenshot 2026-09-15 154359" src="https://github.com/user-attachments/assets/6e5c46e3-2664-44ec-8f33-d3c7870f21dc" />
+<img width="1008" height="443" alt="Screenshot 2026-09-15 154342" src="https://github.com/user-attachments/assets/df7cb1ee-25d9-4910-a483-89839a040302" />
+<img width="983" height="553" alt="Screenshot 2026-09-15 154243" src="https://github.com/user-attachments/assets/4925cab0-bd97-464e-b0fb-ec9373bed8fc" />
 
 ## Objective
 
