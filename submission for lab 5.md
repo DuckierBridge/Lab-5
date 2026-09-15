@@ -1,4 +1,4 @@
-[CSC3830_Lost_License_Generator_Report (3).md](https://github.com/user-attachments/files/32260583/CSC3830_Lost_License_Generator_Report.3.md)
+[CSC3830_Lost_License_Generator_Report_Embedded_Images.md](https://github.com/user-attachments/files/32260629/CSC3830_Lost_License_Generator_Report_Embedded_Images.md)
 
 
 
@@ -37,13 +37,13 @@ Enter license key (decimal):
 
 and reads the key as an unsigned decimal integer using `%u`.
 
-![Figure 1 - Beginning of main and username input](f489f8a3-6507-4422-9d9f-10c206b051ce.png)
+<img width="983" height="553" alt="Screenshot 2026-09-15 154243" src="https://github.com/user-attachments/assets/4925cab0-bd97-464e-b0fb-ec9373bed8fc" />
 
 **Figure 1.** Beginning of `main`, including the Student License Validator message and username input.
 
 After the username is successfully read, execution reaches the block that asks for the decimal license key.
 
-![Figure 2 - License key input](fb11805e-c631-41b1-9e53-775d27649229.png)
+<img width="1008" height="443" alt="Screenshot 2026-09-15 154342" src="https://github.com/user-attachments/assets/df7cb1ee-25d9-4910-a483-89839a040302" />
 
 **Figure 2.** The validator asks for the license key and checks whether a numeric value was successfully read.
 
@@ -80,7 +80,7 @@ jnz short loc_14000158B
 - If the values are equal, `JNZ` is not taken and the program prints `License accepted!`.
 - If the values are different, `JNZ` is taken and the program prints `Invalid license.`
 
-![Figure 3 - calculateKey call and accept/reject branch](711d9018-c36f-42db-8ebd-145dbb059893.png)
+<img width="1003" height="548" alt="Screenshot 2026-09-15 154359" src="https://github.com/user-attachments/assets/6e5c46e3-2664-44ec-8f33-d3c7870f21dc" />
 
 **Figure 3.** The key returned by `calculateKey` is compared with the user's key. The graph then branches to either `License accepted!` or `Invalid license.`
 
@@ -133,7 +133,7 @@ The important point is that `main` does **not** create the key itself. The actua
 
 After locating `call calculateKey` in `main`, I opened the function in IDA. This function contains the actual algorithm used to generate the expected license key from the username.
 
-![Figure 4 - calculateKey function](13ff04d7-2e99-4abe-a502-2fbf589ae74e.png)
+<img width="848" height="553" alt="Screenshot 2026-09-15 154959" src="https://github.com/user-attachments/assets/eefdd467-c054-4137-b063-1d6bcad90ce7" />
 
 **Figure 4.** The `calculateKey` function initializes the key, loops through each username character, and applies a final XOR.
 
@@ -239,13 +239,13 @@ If the license-key input is not a valid number, the program reaches:
 Invalid input. Enter a numeric key.
 ```
 
-![Figure 5 - Error and exit paths](02989abc-4f16-4733-b81d-2d03891eb7ae.png)
+<img width="978" height="558" alt="Screenshot 2026-09-15 154421" src="https://github.com/user-attachments/assets/2f1aeade-3646-490d-8e27-80f2d1a0232a" />
 
 **Figure 5.** Error paths for unreadable username or invalid numeric input, along with the common exit block.
 
 The program also contains cleanup/input-handling logic before exiting.
 
-![Figure 6 - Exit and getchar logic](542dab8b-2021-4723-a0e8-a409e500728e.png)
+<img width="1001" height="550" alt="Screenshot 2026-09-15 154411" src="https://github.com/user-attachments/assets/11d1ce32-f26e-4876-8ec3-431abd312423" />
 
 **Figure 6.** Final input cleanup and exit logic used after validation.
 
@@ -377,7 +377,7 @@ I tested the reconstructed Python key generator with three different usernames a
 
 The Python keygen was also run directly in Spyder. The screenshot below shows the source code and generated output for two of the test usernames.
 
-![Figure 7 - Python keygen source and generated keys](keygen_source_and_output.png)
+<img width="1818" height="1062" alt="Screenshot 2026-09-15 160139" src="https://github.com/user-attachments/assets/01255d5d-e74f-4c73-8977-761a529b67b2" />
 
 **Figure 7.** Python replacement key generator running in Spyder. It generated `252` for `ducky` and `1883` for `carter`.
 
@@ -389,7 +389,7 @@ Generated Key: 252
 Validator Result: License accepted!
 ```
 
-![Figure 8 - ducky accepted with key 252](verification_ducky.png)
+<img width="1056" height="553" alt="Screenshot 2026-09-15 160051" src="https://github.com/user-attachments/assets/f787db7d-56e5-4cc5-8f86-7909cdc84549" />
 
 **Figure 8.** The original validator accepts username `ducky` with the generated decimal key `252`.
 
@@ -401,7 +401,7 @@ Generated Key: 1883
 Validator Result: License accepted!
 ```
 
-![Figure 9 - carter accepted with key 1883](verification_carter.png)
+<img width="1053" height="557" alt="Screenshot 2026-09-15 160129" src="https://github.com/user-attachments/assets/84cb4fdb-c9a1-4f28-b914-bd84f7c70de7" />
 
 **Figure 9.** The original validator accepts username `carter` with the generated decimal key `1883`.
 
@@ -413,7 +413,7 @@ Generated Key: 64
 Validator Result: License accepted!
 ```
 
-![Figure 10 - hello accepted with key 64](verification_hello.png)
+<img width="1058" height="563" alt="Screenshot 2026-09-15 160204" src="https://github.com/user-attachments/assets/1761c438-8ba2-4b00-9965-bfee91ab4efd" />
 
 **Figure 10.** The original validator accepts username `hello` with the generated decimal key `64`.
 
